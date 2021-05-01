@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Create / delete DO Droplet snapshots
+# Author: Seff Parker
+# Version: 0.0.1 20210501
+
+IDS="100001 100002 100004" # Droplet IDs to be processed
+S_LIMIT=2 # max. number of completed snapshots to be kept for a Droplet
+
+echo "DO Snapshot starting"
+for ID in $IDS
+	do
+	echo
+	echo "Processing instance ID ${ID}"
+	I_NAME=$(doctl compute droplet list --format ID,Name | grep -w ${ID} | awk '{print $2}')
+	if [[ -z "$I_NAME" ]]
+		then
+		echo "ERROR: ID ${ID} not found!"
+	else
+		S_NAME=${I_NAME}-$(date +%s)
+		echo "Creating snapshot $S_NAME"
+		doctl compute droplet-action snapshot ${ID} --snapshot-name ${S_NAME}
+		echo "Fetching current snapshots for ${I_NAME}"
+		S_LIST=$(doctl compute droplet snapshots ${ID} --no-header)
+		S_COUNT=$(echo "${S_LIST}" | grep -c .)
+		echo "${S_COUNT} snapshot(s) found for ${I_NAME}. Limit is ${S_LIMIT}"
+		if [[ ${S_COUNT} -gt ${S_LIMIT} ]]
+			then
+			S_JUNKS=$(echo "${S_LIST}" | sort -r | tail -n +$((${S_LIMIT}+1)) | awk '{print $1}')
+			for S_JUNK in ${S_JUNKS}
+				do
+				echo "Deleting snapshot ID ${S_JUNK} of ${I_NAME}"
+				doctl compute image delete ${S_JUNK} --force			
+			done
+		fi
+	fi
+done
+echo "DO Snapshot completed"
