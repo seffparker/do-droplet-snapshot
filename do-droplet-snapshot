@@ -2,26 +2,27 @@
 
 # Create / delete DO Droplet snapshots
 # Author: Seff Parker
-# Version: 0.0.2 20210501
+# Version: 0.1.0 20210504
 
 D_NAMES="droplet-1 droplet-2"
-S_LIMIT=2 # max. number of completed snapshots to be kept for a Droplet
+S_LIMIT=1
+DO_CTL="/snap/bin/doctl"
 
 echo "DO Snapshot starting"
 for D_NAME in ${D_NAMES}
 	do
 	echo
 	echo "Processing instance ID ${D_NAME}"
-	ID=$(doctl compute droplet list --format ID,Name | grep -w ${D_NAME} | awk '{print $1}')
+	ID=$(${DO_CTL} compute droplet list --format ID,Name | grep -w ${D_NAME} | awk '{print $1}')
 	if [[ -z "$ID" ]]
 		then
 		echo "ERROR: Droplet ${D_NAME} not found!"
 	else
 		S_NAME=${D_NAME}-$(date +%s)
 		echo "Creating snapshot $S_NAME"
-		doctl compute droplet-action snapshot ${ID} --snapshot-name ${S_NAME}
+		${DO_CTL} compute droplet-action snapshot ${ID} --snapshot-name ${S_NAME}
 		echo "Fetching current snapshots for ${D_NAME}"
-		S_LIST=$(doctl compute droplet snapshots ${ID} --no-header)
+		S_LIST=$(${DO_CTL} compute droplet snapshots ${ID} --no-header)
 		S_COUNT=$(echo "${S_LIST}" | grep -c .)
 		echo "${S_COUNT} snapshot(s) found for ${D_NAME}. Limit is ${S_LIMIT}"
 		if [[ ${S_COUNT} -gt ${S_LIMIT} ]]
@@ -30,7 +31,7 @@ for D_NAME in ${D_NAMES}
 			for S_JUNK in ${S_JUNKS}
 				do
 				echo "Deleting snapshot ID ${S_JUNK} of ${D_NAME}"
-				doctl compute image delete ${S_JUNK} --force			
+				${DO_CTL} compute image delete ${S_JUNK} --force			
 			done
 		fi
 	fi
